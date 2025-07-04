@@ -7,7 +7,7 @@
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python version">
   </a>
-  <img src="https://img.shields.io/badge/version-0.1.5-orange" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.0.0-orange" alt="Version">
 </p>
 
 一个轻量级的 MCP 服务器，用于通过 [Gewe API](https://www.geweapi.com) 提供的微信机器人发送 AI 任务状态通知。

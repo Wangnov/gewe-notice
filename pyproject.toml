@@ -2,7 +2,7 @@
 
 [project]
 name = "gewe-notice"
-version = "0.1.5"
+version = "1.0.0"
 description = "一个轻量级的 MCP 服务器，用于通过gewe微信机器人发送 AI 任务状态通知。"
 readme = "README.md"
 requires-python = ">=3.10"
