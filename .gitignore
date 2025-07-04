@@ -20,3 +20,9 @@ test*.*
 
 # uv
 uv.lock
+
+# .env
+.env
+
+# 构建和发布脚本
+publish.sh
