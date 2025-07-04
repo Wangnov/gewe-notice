@@ -27,6 +27,19 @@
 - **清晰的错误处理**: 对接 Gewe API 的常见错误（如不在群内、用户不存在、无权限等）进行了分类处理，并在服务端打印出清晰的错误信息，便于快速定位问题。
 - **灵活的配置**: 所有关键参数均可通过命令行进行配置。
 
+## 效果图
+
+<table>
+  <tr>
+    <td align="center">个人通知效果</td>
+    <td align="center">群@通知效果</td>
+  </tr>
+  <tr>
+    <td><img src="assets/friend_notice.png" width="350"></td>
+    <td><img src="assets/group_notice.png" width="350"></td>
+  </tr>
+</table>
+
 ## 🤔 使用场景说明
 
 需要注意的是，`gewe-notice` 的设计初衷是作为**单向的、非交互式**的状态通知工具，它与 `mcp-feedback-enhanced` 等交互式工具的用途有着本质区别。
