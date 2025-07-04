@@ -17,3 +17,6 @@ test*.*
 
 # 任务文档
 *task.md
+
+# uv
+uv.lock

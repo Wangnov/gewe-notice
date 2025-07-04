@@ -25,7 +25,7 @@
         - 获取群成员列表失败时，会跳过 `@` 功能，仅发送纯文本，确保消息送达。
 - **权限自动降级**: 当 `@所有人` 因权限不足失败时，服务器会自动重试，改为发送不带 `@` 的纯文本消息，最大程度保证通知的成功率。
 - **清晰的错误处理**: 对接 Gewe API 的常见错误（如不在群内、用户不存在、无权限等）进行了分类处理，并在服务端打印出清晰的错误信息，便于快速定位问题。
-- **灵活的配置**: 所有关键参数均可通过命令行进行配置。
+- **灵活的配置**: 所有关键参数均通过环境变量进行配置，保持启动命令的整洁。
 
 ## 效果图
 
@@ -74,26 +74,21 @@ pip install uv
 "gewe-notice": {
   "command": "uvx",
   "args": [
-    "gewe-notice",
-    "--token",
-    "YOUR_GEWE_TOKEN",
-    "--app-id",
-    "YOUR_BOT_APP_ID",
-    "--wxid",
-    "YOUR_TARGET_WXID",
-    "-a",
-    "all"
-  ]
+    "gewe-notice"
+  ],
+  "env": {
+    "GEWE_NOTICE_TOKEN": "YOUR_GEWE_TOKEN",
+    "GEWE_NOTICE_APP_ID": "YOUR_BOT_APP_ID",
+    "GEWE_NOTICE_WXID": "YOUR_TARGET_WXID"
+  }
 }
 ```
 
 **配置说明:**
 
 *   `command`: 使用 `uvx`。`uvx` 命令可以临时下载并执行一个 PyPI 包，确保您总能方便地使用最新版本。
-*   `args`:
-    *   第一个参数必须是 PyPI 上的包名 `gewe-notice`。
-    *   后续参数是 `gewe-notice` 的启动参数。您需要将 `YOUR_GEWE_TOKEN`、`YOUR_BOT_APP_ID` 和 `YOUR_TARGET_WXID` 替换为您自己的实际值。
-    *   `"-a", "all"` 是可选的，用于在群聊中@其他人，或@所有人。
+*   `args`: 仅包含包名 `gewe-notice`。
+*   `env`: 通过环境变量设置所有必要参数。您需要将 `YOUR_GEWE_TOKEN`、`YOUR_BOT_APP_ID` 和 `YOUR_TARGET_WXID` 替换为您自己的实际值。
 
 ### 配置示例
 
@@ -105,12 +100,12 @@ pip install uv
 ```json
 "gewe-notice": {
   "command": "uvx",
-  "args": [
-    "gewe-notice",
-    "--token", "YOUR_GEWE_TOKEN",
-    "--app-id", "YOUR_BOT_APP_ID",
-    "--wxid", "wxid_xxxxxxxxxxxxx"
-  ]
+  "args": [ "gewe-notice" ],
+  "env": {
+    "GEWE_NOTICE_TOKEN": "YOUR_GEWE_TOKEN",
+    "GEWE_NOTICE_APP_ID": "YOUR_BOT_APP_ID",
+    "GEWE_NOTICE_WXID": "wxid_xxxxxxxxxxxxx"
+  }
 }
 ```
 
@@ -119,12 +114,12 @@ pip install uv
 ```json
 "gewe-notice": {
   "command": "uvx",
-  "args": [
-    "gewe-notice",
-    "--token", "YOUR_GEWE_TOKEN",
-    "--app-id", "YOUR_BOT_APP_ID",
-    "--wxid", "xxxxxxxxxx@chatroom"
-  ]
+  "args": [ "gewe-notice" ],
+  "env": {
+    "GEWE_NOTICE_TOKEN": "YOUR_GEWE_TOKEN",
+    "GEWE_NOTICE_APP_ID": "YOUR_BOT_APP_ID",
+    "GEWE_NOTICE_WXID": "xxxxxxxxxx@chatroom"
+  }
 }
 ```
 
@@ -133,31 +128,30 @@ pip install uv
 ```json
 "gewe-notice": {
   "command": "uvx",
-  "args": [
-    "gewe-notice",
-    "--token", "YOUR_GEWE_TOKEN",
-    "--app-id", "YOUR_BOT_APP_ID",
-    "--wxid", "xxxxxxxxxx@chatroom",
-    "-a", "all"
-  ]
+  "args": [ "gewe-notice" ],
+  "env": {
+    "GEWE_NOTICE_TOKEN": "YOUR_GEWE_TOKEN",
+    "GEWE_NOTICE_APP_ID": "YOUR_BOT_APP_ID",
+    "GEWE_NOTICE_WXID": "xxxxxxxxxx@chatroom",
+    "GEWE_NOTICE_AT_LIST": "all"
+  }
 }
 ```
 
 #### 4. 发送到群聊并@特定成员
 
-`args` 列表会按顺序平铺所有 `-a` 参数。
+环境变量 `GEWE_NOTICE_AT_LIST` 接受一个用**逗号**分隔的 `wxid` 字符串。
 
 ```json
 "gewe-notice": {
   "command": "uvx",
-  "args": [
-    "gewe-notice",
-    "--token", "YOUR_GEWE_TOKEN",
-    "--app-id", "YOUR_BOT_APP_ID",
-    "--wxid", "xxxxxxxxxx@chatroom",
-    "-a", "wxid_aaaaaaaa",
-    "-a", "wxid_bbbbbbbb"
-  ]
+  "args": [ "gewe-notice" ],
+  "env": {
+    "GEWE_NOTICE_TOKEN": "YOUR_GEWE_TOKEN",
+    "GEWE_NOTICE_APP_ID": "YOUR_BOT_APP_ID",
+    "GEWE_NOTICE_WXID": "xxxxxxxxxx@chatroom",
+    "GEWE_NOTICE_AT_LIST": "wxid_aaaaaaaa,wxid_bbbbbbbb"
+  }
 }
 ```
 
@@ -233,6 +227,28 @@ cd gewe-notice
 uv sync
 ```
 
+## 常见问题 (FAQ)
+
+**Q: 我已经在 IDE (如 Cursor) 中正确配置了 `mcp.json`，为什么 `gewe-notice` 亮红灯，或提供的工具没有出现？**
+
+A: 这很可能是因为您的微信机器人**当前不在线**。
+为了避免在机器人离线时启动一个无效的服务，`gewe-notice` 在启动时会执行一个**在线状态检查**。如果检查到您的机器人不在线，服务会自动终止启动，并且不会在您的 MCP 工具列表中注册。
+在 IDE 中，这个终止过程通常是静默的，您不会看到明确的报错信息。
+
+**解决方法：**
+请确保您用于运行机器人的微信客户端已经成功登录，并且可以正常收发消息。之后，重新加载或重启您的 IDE，MCP 服务器应该就能正常启动了。
+
+**Q: 我确定机器人在线，但 `gewe-notice` 还是亮红灯或工具不出现，这是为什么？**
+
+A: 这很可能是您的环境变量**格式不正确**。
+`gewe-notice` 对关键的环境变量有格式要求，如果格式错误，服务也会启动失败。请检查您的 `mcp.json` 配置：
+-   `GEWE_NOTICE_TOKEN`: 必须是一个有效的 **UUID** 格式的字符串，例如：`e90f8g4-12f3-45f7-a151-bg43cc6ff2e6`。
+-   `GEWE_NOTICE_APP_ID`: 必须以 `wx_` 作为前缀。
+-   `GEWE_NOTICE_WXID`: 请确保填写正确。群聊ID必须以 `@chatroom` 结尾。
+-   `GEWE_NOTICE_AT_LIST`: (可选) 如果提供，它可以是字符串 `all`，或者是一个用**逗号**分隔的 `wxid` 列表。程序会自动忽略多余的空格或因连续逗号产生的空条目。
+
+**解决方法：**
+请仔细核对您在 `mcp.json` 中 `env` 部分填写的每个值的格式是否符合上述要求。
 
 ## 📄 许可证
 
