@@ -26,3 +26,6 @@ uv.lock
 
 # 构建和发布脚本
 publish.sh
+
+# pyenv
+.python-version
