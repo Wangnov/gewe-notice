@@ -2,9 +2,24 @@ import typer
 import os
 import httpx
 import uuid
+import sys
+from loguru import logger
 
 # 从 server.py 导入 mcp 实例和 config 字典
 from .server import mcp, config
+
+# -- 日志和加密辅助函数 --
+# 默认只输出到 stderr，符合 MCP 协议
+logger.remove()
+logger.add(sys.stderr, level="INFO")
+
+
+def redact(value: str, show_first=2, show_last=2) -> str:
+    """对敏感字符串进行加密隐藏，只显示首尾部分。"""
+    if not isinstance(value, str) or len(value) <= show_first + show_last:
+        return "****"
+    return f"{value[:show_first]}****{value[-show_last:]}"
+
 
 # 创建一个 Typer 应用
 app = typer.Typer(add_completion=False, rich_markup_mode="markdown")
@@ -18,8 +33,7 @@ def main():
     一个通过微信机器人发送AI任务状态通知的轻量级工具。
     所有配置均通过环境变量进行设置。
     """
-    print("🚀 正在启动 gewe-notice MCP 服务器...")
-
+    logger.info("🚀 正在启动 gewe-notice MCP 服务器...")
     # 从环境变量读取配置
     base_url = os.getenv("GEWE_NOTICE_BASE_URL", "http://api.geweapi.com")
     token = os.getenv("GEWE_NOTICE_TOKEN")
@@ -61,21 +75,15 @@ def main():
             "❌ `GEWE_NOTICE_WXID` 格式无效，群聊ID似乎格式不正确，它应该以 '@chatroom' 结尾。")
 
     if error_messages:
-        print("\n**配置错误**: 发现以下问题：")
+        logger.error("\n**配置错误**: 发现以下问题：")
         for msg in error_messages:
-            print(f"   - {msg}")
-        print("💡 请检查您的 MCP 配置文件中的环境变量。")
+            logger.error(f"   - {msg}")
+        logger.error("💡 请检查您的 MCP 配置文件中的环境变量。")
         raise typer.Exit(code=1)
     # -- 校验结束 --
 
-    # 验证必要的参数是否已提供
-    if not all([token, app_id, wxid]):
-        print("\n❌ **错误**: 缺少必要的环境变量: `GEWE_NOTICE_TOKEN`, `GEWE_NOTICE_APP_ID`, `GEWE_NOTICE_WXID`")
-        print("💡 请检查您的 MCP 配置文件。")
-        raise typer.Exit(code=1)
-
     # -- 启动前在线检查 --
-    print("🔬 正在检查微信机器人在线状态...")
+    logger.info("🔬 正在检查微信机器人在线状态...")
     check_url = f"{base_url}/gewe/v2/api/login/checkOnline"
     headers = {"X-GEWE-TOKEN": token}
     payload = {"appId": app_id}
@@ -87,23 +95,24 @@ def main():
         if response.status_code == 200:
             response_data = response.json()
             if response_data.get("data") is True:
-                print("✅ 机器人在线，准备就绪。")
+                logger.info("✅ 机器人在线，准备就绪。")
             else:
-                print("\n❌ **错误**: 机器人当前不在线。")
-                print(f"   - App ID: {app_id}")
-                print("💡 请检查您的微信客户端是否已登录，或Gewe服务是否正常。")
+                logger.error("\n❌ **错误**: 机器人当前不在线。")
+                logger.error(f"   - App ID: {app_id}")
+                logger.error("💡 请检查您的微信客户端是否已登录，或Gewe服务是否正常。")
                 raise typer.Exit(code=1)
         else:
-            print(f"\n❌ **错误**: 在线状态检查失败，HTTP状态码: {response.status_code}")
-            print(f"   - 响应内容: {response.text}")
+            logger.error(
+                f"\n❌ **错误**: 在线状态检查失败，HTTP状态码: {response.status_code}")
+            logger.error(f"   - 响应内容: {response.text}")
             raise typer.Exit(code=1)
 
     except httpx.RequestError as e:
-        print(f"\n❌ **错误**: 在线状态检查时发生网络错误: {e}")
-        print("💡 请检查您的网络连接或 Base URL 配置是否正确。")
+        logger.error(f"\n❌ **错误**: 在线状态检查时发生网络错误: {e}")
+        logger.error("💡 请检查您的网络连接或 Base URL 配置是否正确。")
         raise typer.Exit(code=1)
     except Exception as e:
-        print(f"\n❌ **错误**: 在线状态检查时发生未知错误: {e}")
+        logger.error(f"\n❌ **错误**: 在线状态检查时发生未知错误: {e}")
         raise typer.Exit(code=1)
     # -- 在线检查结束 --
 
@@ -114,13 +123,21 @@ def main():
     config["wxid"] = wxid
     config["at_list"] = at_list
 
-    print("🔧 配置加载成功 (来自环境变量):")
-    print(f"   - Base URL: {config['base_url']}")
-    print(f"   - App ID:   {config['app_id']}")
-    print(f"   - WXID:     {config['wxid']}")
+    logger.info("🔧 配置加载成功 (来自环境变量):")
+    logger.info(f"   - Base URL: {config['base_url']}")
+    logger.info(f"   - Token:    {redact(config['token'])}")
+    logger.info(
+        f"   - App ID:   {redact(config['app_id'], show_first=3, show_last=4)}")
+    logger.info(f"   - WXID:     {redact(config['wxid'])}")
+
     if config["at_list"]:
-        print(f"   - At List:  {config['at_list']}")  # 直接打印列表
-    print("-" * 20)
+        # 加密处理 at_list
+        if config["at_list"] == ["all"]:
+            redacted_at_list = "all"
+        else:
+            redacted_at_list = [redact(at) for at in config["at_list"]]
+        logger.info(f"   - At List:  {redacted_at_list}")
+    logger.info("-" * 20)
 
     # 运行 MCP 服务器
     mcp.run()

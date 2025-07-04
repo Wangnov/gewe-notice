@@ -3,6 +3,7 @@ from fastmcp import FastMCP
 from typing_extensions import Annotated
 from pydantic import Field
 from typing import Dict, Optional
+from loguru import logger
 
 # 全局配置字典
 config = {
@@ -22,7 +23,7 @@ mcp = FastMCP(
 
 def _get_chatroom_member_names(chatroom_id: str) -> Optional[Dict[str, str]]:
     """调用API获取群成员列表，并返回一个 wxid -> name 的映射字典。"""
-    print(f"正在为群 {chatroom_id} 获取成员列表...")
+    logger.info(f"正在为群 {chatroom_id} 获取成员列表...")
     url = f"{config['base_url']}/gewe/v2/api/group/getChatroomMemberList"
     headers = {"X-GEWE-TOKEN": config["token"],
                "Content-Type": "application/json"}
@@ -43,7 +44,8 @@ def _get_chatroom_member_names(chatroom_id: str) -> Optional[Dict[str, str]]:
 
         # 检查特定业务错误: ret=500, msg="获取群成员列表异常:null"
         if response_data and response_data.get("ret") == 500 and response_data.get("msg") == "获取群成员列表异常:null":
-            print(f"❌ 获取群成员列表失败: 你可能已不在群 {chatroom_id} 内或该群聊不存在。(ret: 500)")
+            logger.error(
+                f"❌ 获取群成员列表失败: 你可能已不在群 {chatroom_id} 内或该群聊不存在。(ret: 500)")
             return None
 
         if response.status_code == 200 and response_data:
@@ -51,7 +53,7 @@ def _get_chatroom_member_names(chatroom_id: str) -> Optional[Dict[str, str]]:
             member_list = data.get("memberList", [])
             if not member_list:
                 # 这种情况可能是群里只有自己，或者API行为如此
-                print("⚠️ 警告: 获取到空的群成员列表。")
+                logger.warning("⚠️ 警告: 获取到空的群成员列表。")
                 return {}
 
             # 创建 wxid -> name 的映射
@@ -60,14 +62,14 @@ def _get_chatroom_member_names(chatroom_id: str) -> Optional[Dict[str, str]]:
                 member["wxid"]: member["displayName"] or member["nickName"]
                 for member in member_list
             }
-            print("✅ 成功获取并解析群成员列表。")
+            logger.info("✅ 成功获取并解析群成员列表。")
             return name_map
         else:
-            print(
+            logger.error(
                 f"❌ 获取群成员列表失败，状态码: {response.status_code}, 响应: {response.text}")
             return None
     except httpx.RequestError as e:
-        print(f"❌ 获取群成员时发生网络错误: {e}")
+        logger.error(f"❌ 获取群成员时发生网络错误: {e}")
         return None
 
 
@@ -98,11 +100,11 @@ def post_text(
     - `❌ [API Call] - 调用 Gewe API 失败，请检查凭证或网络连接。`
     - `❌ [API Call] - Failed to call Gewe API, please check credentials or network connection.`
     """
-    print(f"准备发送通知: '{content}'")
+    logger.info(f"准备发送通知: '{content}'")
 
     if not all([config["token"], config["app_id"], config["wxid"]]):
         error_msg = "错误：缺少必要的配置参数 (token, app_id, wxid)。"
-        print(error_msg)
+        logger.error(error_msg)
         return {"status": "error", "message": error_msg}
 
     final_content = content
@@ -113,13 +115,13 @@ def post_text(
     at_list = config.get("at_list")
 
     if is_chatroom and at_list:
-        print("检测到群聊@请求，正在处理...")
+        logger.info("检测到群聊@请求，正在处理...")
 
         # 处理 @全体成员 的情况
         if at_list == ["all"]:
             ats_payload = "notify@all"
             final_content = "@所有人 " + content
-            print("将@全体成员，并在内容中添加@所有人。")
+            logger.info("将@全体成员，并在内容中添加@所有人。")
         else:
             # 处理 @特定成员 的情况
             member_name_map = _get_chatroom_member_names(config["wxid"])
@@ -132,17 +134,17 @@ def post_text(
                         at_names.append(f"@{name}")
                         valid_at_wxids.append(wxid)
                     else:
-                        print(f"⚠️ 警告: 在群成员列表中未找到 wxid: {wxid}")
+                        logger.warning(f"⚠️ 警告: 在群成员列表中未找到 wxid: {wxid}")
 
                 if at_names:
                     # 拼接@字符串到内容开头
                     mention_string = " ".join(at_names) + " "
                     final_content = mention_string + content
                     ats_payload = ",".join(valid_at_wxids)
-                    print(f"最终@内容: {mention_string}")
-                    print(f"最终ats参数: {ats_payload}")
+                    logger.info(f"最终@内容: {mention_string}")
+                    logger.info(f"最终ats参数: {ats_payload}")
             else:
-                print("❌ 因无法获取群成员列表，@功能已跳过。")
+                logger.error("❌ 因无法获取群成员列表，@功能已跳过。")
 
     # 构建最终的API请求
     url = f"{config['base_url']}/gewe/v2/api/message/postText"
@@ -173,7 +175,7 @@ def post_text(
                 pass  # 响应非JSON或格式不符，按原流程处理
 
         if is_at_all_permission_error:
-            print("⚠️ 警告: @全体成员失败，无权限。将尝试不@全体成员重试。")
+            logger.warning("⚠️ 警告: @全体成员失败，无权限。将尝试不@全体成员重试。")
             # 构建不带@的重试请求
             retry_payload = {
                 "appId": config["app_id"],
@@ -195,7 +197,7 @@ def post_text(
         # 检查业务是否完全成功
         if response.status_code == 200 and response_data and \
            response_data.get("ret") == 200 and "失败" not in response_data.get("msg", ""):
-            print(f"✅ 通知发送成功: {response_data}")
+            logger.info(f"✅ 通知发送成功: {response_data}")
             return {"status": "success", "response": response_data}
         else:
             # 统一处理所有失败情况
@@ -234,10 +236,10 @@ def post_text(
                 response_data)
             final_error_msg += f" 原始响应: {raw_response_text}"
 
-            print(final_error_msg)
+            logger.error(final_error_msg)
             return {"status": "error", "message": final_error_msg, "response": response_data or response.text}
 
     except httpx.RequestError as e:
         error_msg = f"❌ 发送通知时发生网络错误: {e}"
-        print(error_msg)
+        logger.error(error_msg)
         return {"status": "error", "message": error_msg}
