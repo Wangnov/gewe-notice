@@ -11,3 +11,6 @@ wheels/
 
 # 测试
 test*.*
+
+# macos
+.DS_Store
