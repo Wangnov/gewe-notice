@@ -7,7 +7,7 @@
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python version">
   </a>
-  <img src="https://img.shields.io/badge/version-0.1.0-orange" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.1.1-orange" alt="Version">
 </p>
 
 一个轻量级的 MCP 服务器，用于通过 [Gewe API](https://www.geweapi.com) 提供的微信机器人发送 AI 任务状态通知。
@@ -35,8 +35,8 @@
     <td align="center">群@通知效果</td>
   </tr>
   <tr>
-    <td><img src="assets/friend_notice.png" width="350"></td>
-    <td><img src="assets/group_notice.png" width="350"></td>
+    <td><img src="https://raw.githubusercontent.com/wangnov/gewe-notice/master/assets/friend_notice.png" width="350"></td>
+    <td><img src="https://raw.githubusercontent.com/wangnov/gewe-notice/master/assets/group_notice.png" width="350"></td>
   </tr>
 </table>
 
